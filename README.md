@@ -1,0 +1,2 @@
+# StoicNet
+MS Capstone Project
