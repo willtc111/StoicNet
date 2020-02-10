@@ -8,12 +8,9 @@ from time import sleep
 faceCascade = cv2.CascadeClassifier(r'C:\OpenCV-3.4.5\opencv\build\etc\haarcascades\haarcascade_frontalface_default.xml')
 faceCascadeAlt = cv2.CascadeClassifier(r'C:\OpenCV-3.4.5\opencv\build\etc\haarcascades\haarcascade_frontalface_alt.xml')
 faceCascadeTree = cv2.CascadeClassifier(r'C:\OpenCV-3.4.5\opencv\build\etc\haarcascades\haarcascade_frontalface_alt_tree.xml')
-maximum = -1
-minimum = 99999999
-def faceCrop(image):
-    global maximum
-    global minimum
 
+
+def faceCrop(image):
     imageCV = pil2cv(image)
 
     min_size = (150,150)
@@ -40,10 +37,11 @@ def faceCrop(image):
         else:
             faces = facesAlt
 
+    # TODO: Comment this out for final run
     for ((x, y, w, h)) in faces:
         p1 = (x,y)
         p2 = (x+w, y+h)
-        imageCVRect = cv2.rectangle(imageCV, p1, p2, (255,255,255), 5) # TODO: Comment this out for final run
+        imageCVRect = cv2.rectangle(imageCV, p1, p2, (255,255,255), 5)
 
     ((x, y, w, h)) = faces[0]
     x = max(x - border_size, 0)
@@ -51,18 +49,12 @@ def faceCrop(image):
     w = w + 2*border_size
     h = h + 2*border_size
 
-    if w < minimum:
-        minimum = w
-    if w > maximum:
-        maximum = w 
-
-    #print('{0},{1},{2},{3} [{4},{5}]'.format(x,y,w,h,minimum,maximum))
-    cv2.imshow('To-crop', imageCVRect)
+    # cv2.imshow('To-crop', imageCVRect)
 
     original = pil2cv(image)
     imageCropCV = original[y:y+h, x:x+w]
     
-    cv2.imshow('Cropped', imageCropCV)
+    # cv2.imshow('Cropped', imageCropCV)
 
     imageCropPIL = cv2pil(imageCropCV)
     return imageCropPIL
@@ -72,6 +64,7 @@ def pil2cv(pil_im):
     pil_im = pil_im.convert('L')
     cv_im = np.array(pil_im)
     return cv_im
+
 
 def cv2pil(cv_im):
     return Image.fromarray(cv_im)
@@ -84,15 +77,19 @@ def fixImage(fromPath, toPath):
     # Resize
     img.thumbnail((256,256), Image.ANTIALIAS)
     
-    cv2.imshow('Resized', pil2cv(img))
-    cv2.waitKey(0)
-    # img.save(toPath)
+    # cv2.imshow('Resized', pil2cv(img))
+    # cv2.waitKey(0)
 
+    img.save(toPath)
 
 
 
 dbRoot = r'C:\Users\Will\Documents\Cohn-Kanade Database\Cohn-Kanade Database\CK+\cohn-kanade-images'
 destRoot = r'C:\Users\Will\Documents\StoicNetData'
+
+if not os.path.exists(destRoot):
+    os.makedirs(destRoot)
+
 imagePairs = []
 pairCount = 0
 with os.scandir(dbRoot) as subjectEntries:
@@ -109,16 +106,26 @@ with os.scandir(dbRoot) as subjectEntries:
                         for imageEntry in imageEntries:
                             if imageEntry.endswith('.png'):
                                 print("       |--" + imageEntry)
-                                imagePairs.append((imageEntries[0], imageEntry))
+
+                                if not os.path.exists(destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name):
+                                    os.makedirs(destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name)
+
                                 fixImage(
-                                    dbRoot+"\\"+ subjectEntry.name +"\\"+  sessionEntry.name + "\\" + imageEntry,
-                                    destRoot+"\\"+ subjectEntry.name +"\\"+  sessionEntry.name + "\\" + imageEntry
+                                    dbRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry,
+                                    destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry
+                                )
+
+                                imagePairs.append(
+                                    (
+                                        subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntries[0],
+                                        subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry
+                                    )
                                 )
                                 pairCount += 1
 
-#print(imagePairs)
-print(str(pairCount) + ' pairs')
-print("min: " + str(minimum))
-print("max: " + str(maximum))
 
-# TODO: Write pair list to file
+print(str(pairCount) + ' pairs')
+
+# Write pair list to file
+with open(destRoot + '\\pairs.txt', 'w') as fp:
+    fp.write('\n'.join('{0}\t{1}'.format(ip[0],ip[1]) for ip in imagePairs))
