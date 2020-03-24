@@ -1,6 +1,8 @@
 import os
+import sys
 import cv2
 import numpy as np
+import random
 from PIL import Image
 from time import sleep
 
@@ -82,10 +84,38 @@ def fixImage(fromPath, toPath):
 
     img.save(toPath)
 
+def getRandomImg(subjectIndex):
+    ri = random.randint(0,subjectCount-2) # -1 for proper indexing, -1 to skip current index
+    if ri >= subIndex:
+        ri += 1 # skip over the current index
+    subjectEntry = subjectEntrys[ri].name
 
+    with os.scandir(dbRoot+ "\\" + subjectEntry) as sessionEntries:
+        sessionEntrys = list(sessionEntries)
+        ri = random.randint(0,len(sessionEntrys)-1)
+        sessionEntry = sessionEntrys[ri]
+        if sessionEntry.is_dir():
+            imageEntries = os.listdir(dbRoot+"\\"+ subjectEntry +"\\"+  sessionEntry.name)
+            ri = random.randint(0,len(imageEntries)-1)
+            imageEntry = imageEntries[ri]
+            if imageEntry.endswith('.png'):
+                return subjectEntry +"\\"+ sessionEntry.name + "\\" + imageEntry
+            else:
+                print("D'OH!:" +dbRoot+"\\"+subjectEntry+"\\"+sessionEntry.name+"\\"+imageEntry)
+                input("PUSH ENTER TO EXTERMINATE IMPURITY AND CONTINUE")
+                os.remove(dbRoot+"\\"+subjectEntry+"\\"+sessionEntry.name+"\\"+imageEntry)
+                return getRandomImg(subjectIndex)
+        else:
+            print("D'OH!:" +dbRoot+"\\"+subjectEntry+"\\"+sessionEntry.name)
+            input("PUSH ENTER TO EXTERMINATE IMPURITY AND CONTINUE")
+            os.remove(dbRoot+"\\"+subjectEntry+"\\"+sessionEntry.name)
+            return getRandomImg(subjectIndex)
+            
 
 dbRoot = r'C:\Users\Will\Documents\Cohn-Kanade Database\Cohn-Kanade Database\CK+\cohn-kanade-images'
 destRoot = r'C:\Users\Will\Documents\StoicNetData'
+
+NO_REDO = True
 
 if not os.path.exists(destRoot):
     os.makedirs(destRoot)
@@ -93,10 +123,12 @@ if not os.path.exists(destRoot):
 imagePairs = []
 pairCount = 0
 with os.scandir(dbRoot) as subjectEntries:
-    for subjectEntry in subjectEntries:
+    subjectEntrys = list(subjectEntries)
+    subjectCount = len(subjectEntrys)
+    for subIndex in range(subjectCount):
+        subjectEntry = subjectEntrys[subIndex]
         if subjectEntry.is_dir():
             print(subjectEntry.name)
-
             with os.scandir(dbRoot+ "\\" + subjectEntry.name) as sessionEntries:
                 for sessionEntry in sessionEntries:
                     if sessionEntry.is_dir():
@@ -105,27 +137,36 @@ with os.scandir(dbRoot) as subjectEntries:
                         imageEntries = os.listdir(dbRoot+"\\"+ subjectEntry.name +"\\"+  sessionEntry.name)
                         for imageEntry in imageEntries:
                             if imageEntry.endswith('.png'):
-                                print("       |--" + imageEntry)
+                                print("       |--" + imageEntry, end=' ')
 
                                 if not os.path.exists(destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name):
                                     os.makedirs(destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name)
 
-                                fixImage(
-                                    dbRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry,
-                                    destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry
-                                )
+                                if NO_REDO and not os.path.exists(destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry):
+                                    fixImage(
+                                        dbRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry,
+                                        destRoot +"\\"+ subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry
+                                    )
+
+                                randomOther = getRandomImg(subIndex)
+                                print(' x  ' + randomOther)
 
                                 imagePairs.append(
                                     (
                                         subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntries[0],
-                                        subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry
+                                        subjectEntry.name +"\\"+ sessionEntry.name + "\\" + imageEntry,
+                                        randomOther
                                     )
                                 )
                                 pairCount += 1
 
 
-print(str(pairCount) + ' pairs')
+print(str(pairCount) + ' triplets/pairs')
 
 # Write pair list to file
 with open(destRoot + '\\pairs.txt', 'w') as fp:
     fp.write('\n'.join('{0}\t{1}'.format(ip[0],ip[1]) for ip in imagePairs))
+
+# Write triplets list to file
+with open(destRoot + '\\triplets.txt', 'w') as fp:
+    fp.write('\n'.join('{0}\t{1}\t{2}'.format(ip[0],ip[1], ip[2]) for ip in imagePairs))
